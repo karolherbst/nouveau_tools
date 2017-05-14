@@ -99,6 +99,25 @@ function readReg {
 	fi
 }
 
+function readwritedataio {
+	poke 204 $3
+	if [[ -z $4 ]]; then
+		poke 200 $(toHex $((16#$1|2<<6)) )
+		peek 20c
+	else
+		poke 208 $4
+		poke 200 $(toHex $((16#$2|2<<6)) )
+	fi
+}
+
+function data {
+	readwritedataio a b $1 $2
+}
+
+function io {
+	readwritedataio c d $1 $2
+}
+
 function dbg_continue {
 	if [[ -z $1 ]]; then
 		poke 200 1
@@ -135,8 +154,14 @@ if [[ $# -gt 0 ]]; then
 	c|continue)
 		dbg_continue $2
 		;;
+	data)
+		data $2 $3
+		;;
 	dump)
 		dumpBinary
+		;;
+	io)
+		io $2 $3
 		;;
 	reg)
 		readReg $2 $3
