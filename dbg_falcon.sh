@@ -94,7 +94,12 @@ function readReg {
 }
 
 function dbg_continue {
-	poke 200 1
+	if [[ -z $1 ]]; then
+		poke 200 1
+	else
+		poke 204 $1
+		poke 200 2
+	fi
 }
 
 function dbg_break {
@@ -102,41 +107,42 @@ function dbg_break {
 }
 
 function dbg_step {
-	poke 200 5
+	if [[ -z $1 ]]; then
+		poke 200 5
+	else
+		poke 204 $1
+		poke 200 6
+	fi
 }
 
 if [[ $# -gt 0 ]]; then
 	parseFalconImage
-	while [[ $# -gt 0 ]]; do
-		key="$1"
-		case $key in
-		b|break)
-			dbg_break
-			;;
-		bp|breakpoint)
-			setBreakpoint $2
-			shift
-			;;
-		c|continue)
-			dbg_continue
-			;;
-		dump)
-			dumpBinary
-			;;
-		reg)
-			readReg $2
-			shift
-			;;
-		status)
-			status
-			;;
-		step)
-			dbg_step
-			status
-			;;
-		esac
-		shift
-	done
+	key="$1"
+	case $key in
+	b|break)
+		dbg_break
+		status
+		;;
+	bp|breakpoint)
+		setBreakpoint $2
+		;;
+	c|continue)
+		dbg_continue $2
+		;;
+	dump)
+		dumpBinary
+		;;
+	reg)
+		readReg $2
+		;;
+	status)
+		status
+		;;
+	step)
+		dbg_step $2
+		status
+		;;
+	esac
 else
 	status
 fi
