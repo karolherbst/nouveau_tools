@@ -89,8 +89,14 @@ function readReg {
 	ctargets)	reg=27 ;;
 	tstatus)	reg=28 ;;
 	esac
-	poke 200 $(toHex $((16#8|($reg&16#1f)<<8)) )
-	peek 20c
+
+	if [[ -z $2 ]]; then
+		poke 200 $(toHex $((16#8|($reg&16#1f)<<8)) )
+		peek 20c
+	else
+		poke 208 $2
+		poke 200 $(toHex $((16#9|($reg&16#1f)<<8)) )
+	fi
 }
 
 function dbg_continue {
@@ -133,7 +139,7 @@ if [[ $# -gt 0 ]]; then
 		dumpBinary
 		;;
 	reg)
-		readReg $2
+		readReg $2 $3
 		;;
 	status)
 		status
