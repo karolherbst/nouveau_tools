@@ -62,7 +62,6 @@ function listBreakpoints {
 }
 
 function status {
-	listBreakpoints
 	pc=$(readReg pc)
 	printf '$pc: '; printf "%s (%s)\n" $pc "$(instructionAt $pc)"
 	printf '$sp: '; readReg sp
