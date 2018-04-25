@@ -3,19 +3,32 @@
 # we need this for +(0) substitutions
 shopt -s extglob
 
-FALCON_BASE=10a000
-FALCON_BINARY=/home/karol/Dokumente/repos/nouveau/drm/nouveau/nvkm/subdev/pmu/fuc/gf119.fuc4.h
+FALCON_BASE=41a000
+FALCON_TYPE=fuc5
+PATH="$PATH:/usr/local/bin/"
 
 declare -A instructionMap
+declare -a instructionMapOrder
 
 function parseFalconImage {
+	CODE=""
+
+	OLD=$(peek 180)
+	for i in $(seq 0 4 230); do
+		poke 180 $(toHex $i)
+		printf "parsing code at $(toHex $i)\n" >&2
+		CODE+="$(peek 184) "
+	done
+	poke 180 $OLD
+
 	while read line; do
 		local address=${line%%:*}
 		local value=${line#*:}
 		address=${address##+(0)}
 		address=${address:-0}
-		instructionMap[$address]=${value##+( )}
-	done < <(cat "$FALCON_BINARY" | grep _code -A9999999 | grep 0x | grep , | cut -d, -f1 | envydis -n -m falcon -V fuc4 -w | grep -v -e '^[[:space:]]*$')
+		instructionMap["$address"]=${value##+( )}
+		instructionMapOrder+=( "$address" )
+	done < <(echo "$CODE" | envydis -n -m falcon -V $FALCON_TYPE -w | grep -v -e '^[[:space:]]*$')
 }
 
 function toHex {
@@ -52,7 +65,9 @@ function instructionAt {
 }
 
 function dumpBinary {
-	cat "$FALCON_BINARY" | grep _code -A9999999 | grep 0x | grep , | cut -d, -f1 | envydis -n -m falcon -V fuc4 -w | grep -v -e '^[[:space:]]*$'
+	for i in "${!instructionMapOrder[@]}"; do
+		printf "%05x: %s\n" "0x${instructionMapOrder[$i]}" "${instructionMap[${instructionMapOrder[$i]}]}"
+	done
 }
 
 function listBreakpoints {
@@ -63,7 +78,8 @@ function listBreakpoints {
 
 function status {
 	pc=$(readReg pc)
-	printf '$pc: '; printf "%s (%s)\n" $pc "$(instructionAt $pc)"
+	printf '$pc: '; printf "%s (%s)\n" $pc XX
+# "$(instructionAt $pc)"
 	printf '$sp: '; readReg sp
 }
 
@@ -139,40 +155,46 @@ function dbg_step {
 	fi
 }
 
-if [[ $# -gt 0 ]]; then
-	parseFalconImage
-	key="$1"
-	case $key in
+parseFalconImage
+status
+
+while true; do
+	read -p "> " cmd
+
+	cmdAr=($cmd)
+
+	case ${cmdAr[0]} in
 	b|break)
 		dbg_break
 		status
 		;;
 	bp|breakpoint)
-		setBreakpoint $2
+		setBreakpoint ${cmdAr[1]}
 		;;
 	c|continue)
-		dbg_continue $2
+		dbg_continue ${cmdAr[1]}
 		;;
 	data)
-		data $2 $3
+		data ${cmdAr[1]} ${cmdAr[2]}
 		;;
 	dump)
 		dumpBinary
 		;;
 	io)
-		io $2 $3
+		io ${cmdAr[1]} ${cmdAr[2]}
 		;;
 	reg)
-		readReg $2 $3
+		readReg ${cmdAr[1]} ${cmdAr[2]}
 		;;
 	status)
 		status
 		;;
 	step)
-		dbg_step $2
+		dbg_step ${cmdAr[1]}
 		status
 		;;
+	quit)
+		exit 0
+		;;
 	esac
-else
-	status
-fi
+done
